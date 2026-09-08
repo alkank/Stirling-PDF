@@ -1,13 +1,7 @@
 import React, { useState } from "react";
+import { Icon } from "@app/ui/Icon";
 import { Menu } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DriveFileRenameOutlineIcon from "@mui/icons-material/DriveFileRenameOutline";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import PaletteIcon from "@mui/icons-material/Palette";
-import SettingsIcon from "@mui/icons-material/Settings";
 
 import { FolderRecord } from "@app/types/folder";
 import { ProcessingFolderState } from "@app/hooks/useProcessingFolders";
@@ -106,7 +100,7 @@ export function FolderMenu({
               onClick={(e) => e.stopPropagation()}
               aria-label={t("filesPage.folderMenu", "Folder actions")}
             >
-              <MoreVertIcon fontSize="small" />
+              <Icon name="ellipsis-vertical" size={20} />
             </ActionIcon>
           ) : (
             <Button
@@ -114,8 +108,8 @@ export function FolderMenu({
               size="sm"
               variant="secondary"
               className="files-page-toolbar-bulk-trigger"
-              leftSection={<SettingsIcon sx={{ fontSize: "1.1rem" }} />}
-              rightSection={<ExpandMoreIcon sx={{ fontSize: "1.1rem" }} />}
+              leftSection={<Icon name="settings" size={"1.1rem"} />}
+              rightSection={<Icon name="chevron-down" size={"1.1rem"} />}
               aria-label={settingsLabel}
             >
               {settingsLabel}
@@ -125,7 +119,7 @@ export function FolderMenu({
         <Menu.Dropdown>
           {onOpen && (
             <Menu.Item
-              leftSection={<OpenInNewIcon sx={{ fontSize: "1.1rem" }} />}
+              leftSection={<Icon name="external-link" size={"1.1rem"} />}
               onClick={onOpen}
             >
               {t("filesPage.open", "Open")}
@@ -135,9 +129,7 @@ export function FolderMenu({
             <>
               <Menu.Label>{t("filesPage.folder", "Folder")}</Menu.Label>
               <Menu.Item
-                leftSection={
-                  <DriveFileRenameOutlineIcon sx={{ fontSize: "1.1rem" }} />
-                }
+                leftSection={<Icon name="file-pen" size={"1.1rem"} />}
                 onClick={onRename}
                 disabled={editsDisabled}
                 title={editsDisabled ? editsDisabledHint : undefined}
@@ -145,7 +137,7 @@ export function FolderMenu({
                 {t("filesPage.rename", "Rename")}
               </Menu.Item>
               <Menu.Item
-                leftSection={<PaletteIcon sx={{ fontSize: "1.1rem" }} />}
+                leftSection={<Icon name="palette" size={"1.1rem"} />}
                 onClick={() => setAppearanceOpen(true)}
                 disabled={editsDisabled}
                 title={editsDisabled ? editsDisabledHint : undefined}
@@ -173,7 +165,7 @@ export function FolderMenu({
               <Menu.Divider />
               <Menu.Item
                 color="red"
-                leftSection={<DeleteIcon sx={{ fontSize: "1.1rem" }} />}
+                leftSection={<Icon name="trash" size={"1.1rem"} />}
                 onClick={onDelete}
                 disabled={editsDisabled}
                 title={editsDisabled ? editsDisabledHint : undefined}
