@@ -12,6 +12,8 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Banner, Button } from "@app/ui";
 import { BillingScreen } from "@app/billing";
+import { useLegacySubscriptions } from "@app/hooks/useLegacySubscriptions";
+import { LegacySubscriptionPlan } from "@app/components/shared/config/LegacySubscriptionPlan";
 import { useUI } from "@portal/contexts/UIContext";
 import { useProcurement } from "@portal/components/procurement/useProcurement";
 import { ControlledDealStatusHero } from "@portal/components/procurement/ProcurementBanner";
@@ -82,6 +84,7 @@ export function Usage({
   renderLicenseSection,
 }: UsageProps = {}) {
   const { t } = useTranslation();
+  const legacyBilling = useLegacySubscriptions();
   const queryClient = useQueryClient();
   const walletKey = qk.wallet(true);
   const {
@@ -291,17 +294,50 @@ export function Usage({
 
   const enterpriseProcessor = serverPlan?.licenseType === "ENTERPRISE";
   const paying = Boolean(wallet?.processor?.active || wallet?.team?.held);
+  const ownsLegacySubscription = legacyBilling.subscriptions.length > 0;
+  const legacyTeamSubscription = legacyBilling.subscriptions.find(
+    (subscription) => subscription.teamId === wallet?.teamId,
+  );
+  const recordedLegacyAllowance = legacyTeamSubscription?.teamAllowance;
+  // A historical Pro personal team can record one seat; its first invitation grants the free allowance.
+  const legacyTeamAllowance =
+    recordedLegacyAllowance &&
+    legacyTeamSubscription?.plan === "pro" &&
+    recordedLegacyAllowance.maxUsers != null
+      ? {
+          ...recordedLegacyAllowance,
+          maxUsers: Math.max(
+            recordedLegacyAllowance.maxUsers,
+            wallet?.freeUserAllowance ?? 0,
+          ),
+        }
+      : recordedLegacyAllowance;
 
   return (
     <BillingScreen
+      legacyTeamAllowance={legacyTeamAllowance ?? undefined}
+      legacyPlan={
+        legacyBilling.loading ||
+        legacyBilling.loadError ||
+        legacyBilling.subscriptions.length ? (
+          <LegacySubscriptionPlan
+            billing={legacyBilling}
+            walletTeamId={wallet?.teamId ?? undefined}
+          />
+        ) : undefined
+      }
       usersInUse={localUsersInUse}
       headerAction={
-        paying && wallet?.role === "leader" ? (
+        ownsLegacySubscription || (paying && wallet?.role === "leader") ? (
           <Button
             fat
             variant="secondary"
-            onClick={portal.open}
-            disabled={portal.opening}
+            onClick={
+              ownsLegacySubscription ? legacyBilling.openPortal : portal.open
+            }
+            disabled={
+              ownsLegacySubscription ? legacyBilling.opening : portal.opening
+            }
           >
             {t("payment.manageSubscription", "Manage subscription")}
           </Button>
@@ -373,6 +409,20 @@ export function Usage({
               )}
             >
               {portal.error}
+            </Banner>
+          )}
+          {legacyBilling.portalError && (
+            <Banner
+              tone="danger"
+              title={t(
+                "portal.usage.error.openStripePortal",
+                "Couldn't open Stripe portal",
+              )}
+            >
+              {t(
+                "legacyBilling.portalError",
+                "We couldn't open Stripe billing. Please try again.",
+              )}
             </Banner>
           )}
         </>
