@@ -28,6 +28,8 @@ export interface BillingScreenProps {
    */
   wallet: Wallet | null;
   loading?: boolean;
+  /** Keeps Plan and Usage visible when their data cannot currently be read. */
+  unavailable?: ReactNode;
   /** Self-hosted phrases its free tier differently. */
   selfHosted?: boolean;
   /** Local licence takes precedence over the cloud product names and user capacity. */
@@ -97,6 +99,7 @@ export function BillingScreen({
   legacyTeamAllowance,
   wallet,
   loading = false,
+  unavailable,
   selfHosted = false,
   serverPlan,
   serverPlanAction,
@@ -139,9 +142,10 @@ export function BillingScreen({
         "ub-procurement",
         t("portal.billing.chip.procurement", "Procurement"),
       ]);
-    if (wallet || serverPlan || legacyPlan)
+    if (wallet || serverPlan || legacyPlan || unavailable)
       out.push(["ub-plan", t("portal.billing.chip.plan", "Plan")]);
-    if (wallet) out.push(["ub-usage", t("portal.billing.chip.usage", "Usage")]);
+    if (wallet || unavailable)
+      out.push(["ub-usage", t("portal.billing.chip.usage", "Usage")]);
     if (wallet && paymentSection)
       out.push(["ub-pay", t("portal.billing.chip.payment", "Payment")]);
     if (wallet && invoicesSection)
@@ -156,6 +160,7 @@ export function BillingScreen({
     wallet,
     serverPlan,
     legacyPlan,
+    unavailable,
     procurementSection,
     licenseSection,
     paymentSection,
@@ -280,7 +285,7 @@ export function BillingScreen({
 
   return (
     <div className="billing-page">
-      <header className="billing-page__head">
+      <div className="billing-page__head">
         <div>
           <h1 className="billing-page__title">
             {t("portal.usage.title", "Usage & Billing")}
@@ -293,7 +298,7 @@ export function BillingScreen({
           </p>
         </div>
         {headerAction}
-      </header>
+      </div>
 
       <div className="billing-page__body">
         <div className="billing-page__notices">{notices}</div>
@@ -304,7 +309,11 @@ export function BillingScreen({
           </div>
         )}
 
-        {(procurementSection || licenseSection || identity || legacyPlan) && (
+        {(procurementSection ||
+          licenseSection ||
+          identity ||
+          legacyPlan ||
+          unavailable) && (
           <div className="billing-card">
             <nav
               className="billing-card__chips"
@@ -493,6 +502,29 @@ export function BillingScreen({
                     )}
                   </>
                 )}
+              </>
+            )}
+            {unavailable && !wallet && (
+              <>
+                {!identity && (
+                  <section id="ub-plan" className="billing-sec">
+                    <span className="billing-eyebrow">
+                      {t("portal.billing.chip.plan", "Plan")}
+                    </span>
+                    <p className="billing-id__sub">{unavailable}</p>
+                  </section>
+                )}
+                <section id="ub-usage" className="billing-sec">
+                  <span className="billing-eyebrow">
+                    {t("portal.billing.chip.usage", "Usage")}
+                  </span>
+                  <p className="billing-id__sub">
+                    {t(
+                      "portal.billing.dataUnavailable",
+                      "Usage figures are currently unavailable.",
+                    )}
+                  </p>
+                </section>
               </>
             )}
             {licenseSection && (
