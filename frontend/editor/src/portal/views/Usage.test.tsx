@@ -22,6 +22,7 @@ import {
 } from "@app/tests/utils/tabVisibility";
 import type { ProcurementSnapshot } from "@portal/api/procurement";
 import type { LegacyBillingState } from "@app/types/legacyBilling";
+import { formatPeriodDate } from "@app/billing";
 
 const legacyBilling: LegacyBillingState = {
   subscriptions: [],
@@ -225,7 +226,7 @@ describe("Usage — link-free wallet renderer", () => {
           id: "sub_old",
           plan,
           status: "active",
-          currentPeriodEnd: null,
+          currentPeriodEnd: "2026-10-12T00:00:00Z",
           teamId: null,
           teamAllowance: null,
         },
@@ -235,6 +236,10 @@ describe("Usage — link-free wallet renderer", () => {
       await screen.findByText(
         plan === "pro" ? "Pro (legacy)" : "Team (legacy)",
       );
+      await screen.findByText(formatPeriodDate("2026-10-12", { year: true }));
+      expect(
+        screen.getByText("Next invoice").closest("section"),
+      ).toHaveAttribute("id", "ub-pay");
       expect(
         screen.queryByText("Free", { exact: true }),
       ).not.toBeInTheDocument();
@@ -309,7 +314,9 @@ describe("Usage — link-free wallet renderer", () => {
     });
     renderUsage(<Usage />);
     await screen.findByText("Processor", { selector: ".billing-id__name" });
-    expect(screen.getByText("Team (legacy)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Team (legacy)", { selector: ".billing-id__name" }),
+    ).toBeInTheDocument();
   });
 
   it.each([

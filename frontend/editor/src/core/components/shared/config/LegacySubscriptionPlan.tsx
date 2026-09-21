@@ -1,4 +1,4 @@
-import { Group, Stack, Text } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { Banner, Button } from "@app/ui";
 import type { LegacyBillingState } from "@app/types/legacyBilling";
@@ -12,7 +12,7 @@ export function LegacySubscriptionPlan({
   /** The main billing screen renders this team's allowance in its Users row. */
   walletTeamId?: number;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   if (billing.loading)
     return (
       <Text role="status">
@@ -47,75 +47,45 @@ export function LegacySubscriptionPlan({
   };
   return (
     <Stack gap="sm">
-      {billing.subscriptions.map((subscription) => {
-        const end = subscription.currentPeriodEnd
-          ? new Date(subscription.currentPeriodEnd)
-          : null;
-        return (
-          <div key={subscription.id}>
-            <Group justify="space-between">
-              <Text size="xl" fw={600}>
-                {subscription.plan === "pro"
-                  ? t("legacyBilling.pro", "Pro (legacy)")
-                  : t("legacyBilling.team", "Team (legacy)")}
-              </Text>
-              <Text>{statusLabels[subscription.status]}</Text>
-            </Group>
-            {end && !Number.isNaN(end.getTime()) && (
+      {billing.subscriptions.map((subscription) => (
+        <div key={subscription.id}>
+          <div className="billing-id">
+            <span className="billing-id__name">
+              {subscription.plan === "pro"
+                ? t("legacyBilling.pro", "Pro (legacy)")
+                : t("legacyBilling.team", "Team (legacy)")}
+            </span>
+            <span className="billing-id__sub">
+              {statusLabels[subscription.status]}
+            </span>
+          </div>
+          {subscription.plan === "team" &&
+            (!subscription.teamAllowance ||
+              subscription.teamId !== walletTeamId) && (
               <Text size="sm">
-                {t(
-                  "legacyBilling.periodEnd",
-                  "Current billing period ends {{date}}",
-                  {
-                    date: end.toLocaleDateString(i18n.language, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    }),
-                  },
-                )}
+                {subscription.teamAllowance
+                  ? subscription.teamAllowance.maxUsers == null
+                    ? t(
+                        "legacyBilling.unlimitedUsers",
+                        "Your team: unlimited users ({{used}} in use)",
+                        { used: subscription.teamAllowance.usersInUse },
+                      )
+                    : t(
+                        "legacyBilling.teamUsers",
+                        "Your team: {{used}} of {{limit}} users",
+                        {
+                          used: subscription.teamAllowance.usersInUse,
+                          limit: subscription.teamAllowance.maxUsers,
+                        },
+                      )
+                  : t(
+                      "legacyBilling.usersUnavailable",
+                      "We couldn't confirm your team's user allowance. Contact support to check your legacy plan.",
+                    )}
               </Text>
             )}
-            <Text size="sm">
-              {t(
-                "legacyBilling.tools",
-                "Unlimited manual PDF tools, advanced PDF tools and no watermarks",
-              )}
-            </Text>
-            {subscription.plan === "team" &&
-              (!subscription.teamAllowance ||
-                subscription.teamId !== walletTeamId) && (
-                <Text size="sm">
-                  {subscription.teamAllowance
-                    ? subscription.teamAllowance.maxUsers == null
-                      ? t(
-                          "legacyBilling.unlimitedUsers",
-                          "Your team: unlimited users ({{used}} in use)",
-                          { used: subscription.teamAllowance.usersInUse },
-                        )
-                      : t(
-                          "legacyBilling.teamUsers",
-                          "Your team: {{used}} of {{limit}} users",
-                          {
-                            used: subscription.teamAllowance.usersInUse,
-                            limit: subscription.teamAllowance.maxUsers,
-                          },
-                        )
-                    : t(
-                        "legacyBilling.usersUnavailable",
-                        "We couldn't confirm your team's user allowance. Contact support to check your legacy plan.",
-                      )}
-                </Text>
-              )}
-          </div>
-        );
-      })}
-      <Text size="sm">
-        {t(
-          "legacyBilling.description",
-          "View your subscription price, invoices and payment details, or cancel your subscription in Stripe.",
-        )}
-      </Text>
+        </div>
+      ))}
     </Stack>
   );
 }

@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Banner, Button } from "@app/ui";
-import { BillingScreen } from "@app/billing";
+import { BillingScreen, KvRow, formatPeriodDate } from "@app/billing";
 import { useLegacySubscriptions } from "@app/hooks/useLegacySubscriptions";
 import { LegacySubscriptionPlan } from "@app/components/shared/config/LegacySubscriptionPlan";
 import { useUI } from "@portal/contexts/UIContext";
@@ -475,13 +475,41 @@ export function Usage({
           : undefined
       }
       paymentSection={
-        paying && wallet ? (
-          <PaymentSection
-            pendingUnits={localUsage?.totalUnsyncedUnits ?? 0}
-            wallet={wallet}
-            onManage={wallet.role === "leader" ? portal.open : undefined}
-            managing={portal.opening}
-          />
+        paying || ownsLegacySubscription ? (
+          <>
+            {paying && wallet && (
+              <PaymentSection
+                pendingUnits={localUsage?.totalUnsyncedUnits ?? 0}
+                wallet={wallet}
+                onManage={wallet.role === "leader" ? portal.open : undefined}
+                managing={portal.opening}
+              />
+            )}
+            {legacyBilling.subscriptions.map((subscription) => (
+              <KvRow
+                key={subscription.id}
+                label={t("portal.billing.payment.nextInvoice", "Next invoice")}
+                note={
+                  paying || legacyBilling.subscriptions.length > 1
+                    ? subscription.plan === "pro"
+                      ? t("legacyBilling.pro", "Pro (legacy)")
+                      : t("legacyBilling.team", "Team (legacy)")
+                    : undefined
+                }
+                value={
+                  subscription.currentPeriodEnd &&
+                  !Number.isNaN(Date.parse(subscription.currentPeriodEnd))
+                    ? formatPeriodDate(subscription.currentPeriodEnd, {
+                        year: true,
+                      })
+                    : t(
+                        "portal.billing.payment.dateUnavailable",
+                        "Billing date not available yet",
+                      )
+                }
+              />
+            ))}
+          </>
         ) : undefined
       }
       invoicesSection={
