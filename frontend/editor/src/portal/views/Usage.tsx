@@ -63,6 +63,8 @@ export interface UsageProps {
   renderLicenseSection?: (onSaved: () => void) => ReactNode;
 }
 
+const WALLET_POLL_MS = 30_000;
+
 /**
  * The portal's host for {@link BillingScreen}: it owns the data loading, session handling and
  * Stripe portal action, and passes its own detail sections through {@code extras}. Whether the
@@ -72,9 +74,6 @@ export interface UsageProps {
  * re-reads it. Only the {@code extras} sections still branch on {@code wallet.status} — the two
  * products render from their own holdings, which that axis cannot express.
  */
-/** How often the page re-reads the wallet while it is open and the tab is visible. */
-const WALLET_POLL_MS = 30_000;
-
 export function Usage({
   localUsersInUse,
   serverPlan,
@@ -95,10 +94,7 @@ export function Usage({
   } = useQuery({
     queryKey: walletKey,
     queryFn: fetchWallet,
-    // A live meter, so it re-reads on a schedule and again on coming back to the
-    // tab. staleTime is what makes the second cheap: this page used to reload in
-    // full on every window focus event, which fires for an alt-tab or a dialog
-    // closing, not just a real return.
+    // Tab returns only re-read stale figures; interval polling pauses while hidden.
     refetchInterval: WALLET_POLL_MS,
     refetchOnWindowFocus: true,
     staleTime: WALLET_POLL_MS,
@@ -179,7 +175,7 @@ export function Usage({
     return () => {
       cancelled = true;
     };
-  }, [procurement.data]);
+  }, [procurement.data, refresh]);
   // From fleet-stats, not the wallet. Null when the backend cannot compute it, which omits the row.
   const { data: fleetStats } = useFleetStats();
   const editorsDeployed = fleetStats?.editorsDeployed ?? null;
@@ -257,7 +253,7 @@ export function Usage({
       minimumSeats: usersInUse ?? undefined,
       onSuccess: refresh,
     });
-  }, [checkout, heldLimit, usersInUse]);
+  }, [checkout, heldLimit, usersInUse, refresh]);
 
   const confirmSubscription = useCallback(async (): Promise<boolean> => {
     // Stripe's onComplete fires before the subscription webhook lands, so poll the
@@ -273,7 +269,7 @@ export function Usage({
         const w = await fetchWallet();
         if (!mounted.current) return false;
         if (w.status === "subscribed") {
-          queryClient.setQueryData(walletKey, w);
+          queryClient.setQueryData(qk.wallet(true), w);
           // Nudge the local instance to refresh its gate now so billable work
           // unblocks immediately rather than on its next poll. Fire-and-forget;
           // a no-op on SaaS (no local instance to sync).
@@ -290,7 +286,7 @@ export function Usage({
     // shows its "almost there" notice rather than the page silently self-healing.
     refresh();
     return false;
-  }, [onWalletLoaded, hasLocalInstance]);
+  }, [queryClient, hasLocalInstance, refresh]);
 
   const enterpriseProcessor = serverPlan?.licenseType === "ENTERPRISE";
   const paying = Boolean(wallet?.processor?.active || wallet?.team?.held);

@@ -1,66 +1,56 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@app/auth/UseSession";
 import { openExternal } from "@app/platform/openExternal";
+import { qk } from "@app/query/keys";
 import {
   createLegacyPortalSession,
   fetchLegacySubscriptions,
 } from "@app/services/legacyBilling";
-import type {
-  LegacyBillingState,
-  LegacySubscription,
-} from "@app/types/legacyBilling";
+import type { LegacyBillingState } from "@app/types/legacyBilling";
+
+const REFRESH_INTERVAL_MS = 30_000;
 
 /** Keeps historical billing separate from wallet allowances and current team membership. */
 export function useLegacySubscriptions(): LegacyBillingState {
   const { user, loading: authLoading } = useAuth();
-  const userId = user && !user.is_anonymous ? user.id : null;
-  const [revision, setRevision] = useState(0);
-  const [result, setResult] = useState<{
-    userId: string;
-    subscriptions: LegacySubscription[];
-    loadError: boolean;
-  } | null>(null);
+  const userId = !authLoading && user && !user.is_anonymous ? user.id : null;
+  const queryClient = useQueryClient();
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: qk.legacySubscriptions(userId),
+    queryFn: userId ? () => fetchLegacySubscriptions(userId) : skipToken,
+    staleTime: REFRESH_INTERVAL_MS,
+    refetchInterval: REFRESH_INTERVAL_MS,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
   const [opening, setOpening] = useState(false);
   const [portalError, setPortalError] = useState(false);
   const currentUser = useRef(userId);
   currentUser.current = userId;
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  const refresh = useCallback(() => {
+    if (userId) void refetch();
+  }, [userId, refetch]);
 
   useEffect(() => {
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
-  }, [refresh]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResult(null);
     setPortalError(false);
-    if (userId) {
-      void fetchLegacySubscriptions(userId).then(
-        (subscriptions) => {
-          if (!cancelled)
-            setResult({ userId, subscriptions, loadError: false });
-        },
-        () => {
-          if (!cancelled)
-            setResult({ userId, subscriptions: [], loadError: true });
-        },
-      );
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, revision]);
+  }, [userId]);
 
-  const subscriptions =
-    result?.userId === userId ? (result?.subscriptions ?? []) : [];
+  const subscriptions = userId ? (data ?? []) : [];
   const openPortal = async () => {
     if (!userId || !subscriptions.length || opening) return;
     setOpening(true);
     setPortalError(false);
     try {
       const url = await createLegacyPortalSession();
-      if (currentUser.current === userId) await openExternal(url);
+      if (currentUser.current === userId) {
+        // A return from Stripe must revalidate even inside the normal freshness window.
+        await queryClient.invalidateQueries({
+          queryKey: qk.legacySubscriptions(userId),
+          refetchType: "none",
+        });
+        if (currentUser.current === userId) await openExternal(url);
+      }
     } catch {
       if (currentUser.current === userId) setPortalError(true);
     } finally {
@@ -70,8 +60,8 @@ export function useLegacySubscriptions(): LegacyBillingState {
 
   return {
     subscriptions,
-    loading: authLoading || Boolean(userId && result?.userId !== userId),
-    loadError: result?.userId === userId && Boolean(result?.loadError),
+    loading: authLoading || Boolean(userId && isPending),
+    loadError: Boolean(userId && isError && data === undefined),
     opening,
     portalError,
     refresh,
