@@ -31,6 +31,7 @@ import { PaymentSection } from "@portal/components/billing/PaymentSection";
 import { InvoicesSection } from "@portal/components/billing/InvoicesSection";
 import { useFleetStats } from "@portal/queries/infrastructure";
 import { qk } from "@portal/queries/keys";
+import { walletQuery, WALLET_POLL_MS } from "@portal/queries/wallet";
 import { useCheckoutOptional } from "@app/contexts/CheckoutContext";
 import { SubscribedPlanView } from "@portal/components/billing/SubscribedPlanView";
 import {
@@ -63,8 +64,6 @@ export interface UsageProps {
   renderLicenseSection?: (onSaved: () => void) => ReactNode;
 }
 
-const WALLET_POLL_MS = 30_000;
-
 /**
  * The portal's host for {@link BillingScreen}: it owns the data loading, session handling and
  * Stripe portal action, and passes its own detail sections through {@code extras}. Whether the
@@ -85,25 +84,18 @@ export function Usage({
   const { t } = useTranslation();
   const legacyBilling = useLegacySubscriptions();
   const queryClient = useQueryClient();
-  const walletKey = qk.wallet(true);
+  // The gate renders this page only for a linked instance.
+  const walletOptions = walletQuery(true);
   const {
     data: wallet = null,
     isPending: walletPending,
     error: walletError,
     refetch: refetchWallet,
-  } = useQuery({
-    queryKey: walletKey,
-    queryFn: fetchWallet,
-    // Tab returns only re-read stale figures; interval polling pauses while hidden.
-    refetchInterval: WALLET_POLL_MS,
-    refetchOnWindowFocus: true,
-    staleTime: WALLET_POLL_MS,
-    // A failure is surfaced to the operator, and the next tick retries.
-    retry: false,
-  });
+  } = useQuery(walletOptions);
   const refresh = useCallback(() => {
     void refetchWallet();
-  }, [refetchWallet]);
+    void queryClient.invalidateQueries({ queryKey: qk.localUsage() });
+  }, [refetchWallet, queryClient]);
   const procurement = useProcurement();
   const { trialSetupRequested, clearTrialSetupRequest } = useUI();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -157,6 +149,7 @@ export function Usage({
     queryFn: () => fetchLocalUsage().catch(() => null),
     enabled: hasLocalInstance,
     refetchInterval: WALLET_POLL_MS,
+    refetchOnWindowFocus: true,
     staleTime: WALLET_POLL_MS,
     retry: false,
   });
